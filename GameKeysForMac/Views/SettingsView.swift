@@ -67,7 +67,7 @@ struct SettingsView: View {
                     }
                 }
                 Spacer()
-                Text("GameKeys for Mac v2.0")
+                Text("GameKeys for Mac v1.0.0")
                     .font(DS.microFont)
                     .foregroundColor(.secondary.opacity(0.4))
                     .padding(.horizontal, 12)
