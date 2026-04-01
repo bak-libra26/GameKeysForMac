@@ -225,7 +225,6 @@ final class GameModeManager: ObservableObject {
         AXIsProcessTrusted()
     }
 
-
     deinit {
         stopIntercepting()
         if let ref = hotkeyRef {
