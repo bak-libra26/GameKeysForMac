@@ -95,6 +95,4 @@ enum L {
     static var ruleSpaces: String { lang == .korean ? "Spaces 전환 방지" : "Prevent Spaces Switch" }
     static var ruleMissionControl: String { lang == .korean ? "Mission Control 방지" : "Prevent Mission Control" }
     static var ruleLaunchpad: String { lang == .korean ? "Launchpad 방지" : "Prevent Launchpad" }
-
-    private static var ko: Bool { lang == .korean }
 }

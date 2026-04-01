@@ -163,12 +163,17 @@ private struct KeysTab: View {
         }
     }
 
+    /// keyCode+modifiers → 로컬라이즈된 라벨 딕셔너리 (렌더마다 재생성 방지)
+    private var localizedLabels: [String: String] {
+        Dictionary(
+            uniqueKeysWithValues: BlockRule.defaultRules.map {
+                ("\($0.keyCode)-\($0.modifierFlags)", $0.label)
+            }
+        )
+    }
+
     private func localizedLabel(for rule: BlockRule) -> String {
-        let defaults = BlockRule.defaultRules
-        if let match = defaults.first(where: { $0.keyCode == rule.keyCode && $0.modifierFlags == rule.modifierFlags }) {
-            return match.label
-        }
-        return rule.label
+        localizedLabels["\(rule.keyCode)-\(rule.modifierFlags)"] ?? rule.label
     }
 }
 
@@ -231,7 +236,7 @@ private struct GeneralTab: View {
         SectionLabel(L.sectionAccessibility)
         CardGroup {
             InfoRow(label: L.accessibilityPermission) {
-                if gameMode.checkAccessibility() {
+                if gameMode.isAccessibilityGranted {
                     Label(L.accessibilityGranted, systemImage: "checkmark.circle.fill")
                         .font(DS.captionFont)
                         .foregroundColor(DS.accent)
@@ -262,6 +267,7 @@ private struct GeneralTab: View {
         }
     }
 }
+
 
 // MARK: - Reusable Components
 

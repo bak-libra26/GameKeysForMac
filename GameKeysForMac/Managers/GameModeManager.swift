@@ -4,14 +4,15 @@ import Carbon.HIToolbox
 /// CGEvent Tap 기반 키 차단 + 글로벌 핫키 + 게임 모드 총괄
 final class GameModeManager: ObservableObject {
     let appState: AppState
+    @Published var isAccessibilityGranted = false
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var tapCheckTimer: Timer?
     private var retainedSelf: Unmanaged<GameModeManager>?
     private var hotkeyRef: EventHotKeyRef?
+    private var eventHandlerRef: EventHandlerRef?
 
-    private let rulesLock = NSLock()
     private var cachedRules: [BlockRule] = []
     private var activeSnapshot: FeatureSnapshot?
 
@@ -33,6 +34,7 @@ final class GameModeManager: ObservableObject {
     init(appState: AppState) {
         self.appState = appState
         updateCachedRules()
+        refreshAccessibility()
     }
 
     // MARK: - Game Mode Toggle
@@ -66,9 +68,7 @@ final class GameModeManager: ObservableObject {
     // MARK: - Rules Cache
 
     func updateCachedRules() {
-        rulesLock.lock()
         cachedRules = appState.blockRules.filter(\.isEnabled)
-        rulesLock.unlock()
     }
 
     // MARK: - Event Tap
@@ -79,9 +79,8 @@ final class GameModeManager: ObservableObject {
         let retained = Unmanaged.passRetained(self)
         retainedSelf = retained
 
-        let eventMask: CGEventMask =
-            (1 << CGEventType.keyDown.rawValue) |
-            (1 << CGEventType.keyUp.rawValue)
+        // keyDown만 감시 (keyUp은 항상 게임에 전달되어야 하므로 tap 불필요)
+        let eventMask: CGEventMask = 1 << CGEventType.keyDown.rawValue
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -104,7 +103,6 @@ final class GameModeManager: ObservableObject {
         ) else {
             retained.release()
             retainedSelf = nil
-            // event tap 생성 실패 = 접근성 권한 없음. 시스템 프롬프트로 목록에 자동 등록.
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
             AXIsProcessTrustedWithOptions(options)
             return
@@ -139,17 +137,10 @@ final class GameModeManager: ObservableObject {
     // MARK: - Event Handling
 
     private func handleEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
-        // keyUp은 항상 통과 (게임에서 키 해제 인식 보장)
-        if event.type == .keyUp {
-            return Unmanaged.passUnretained(event)
-        }
-
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let flags = event.flags.rawValue
 
-        rulesLock.lock()
         let rules = cachedRules
-        rulesLock.unlock()
 
         for rule in rules {
             if rule.matches(keyCode: keyCode, flags: flags) {
@@ -182,6 +173,8 @@ final class GameModeManager: ObservableObject {
     // MARK: - Global Hotkey (Ctrl+Option+G)
 
     func registerGlobalHotkey() {
+        guard hotkeyRef == nil else { return }
+
         var hotKeyID = EventHotKeyID()
         hotKeyID.signature = OSType(0x474B4559)
         hotKeyID.id = 1
@@ -201,6 +194,8 @@ final class GameModeManager: ObservableObject {
     }
 
     private func installHotkeyHandler() {
+        guard eventHandlerRef == nil else { return }
+
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
 
@@ -215,20 +210,23 @@ final class GameModeManager: ObservableObject {
             1,
             &eventType,
             selfPtr,
-            nil
+            &eventHandlerRef
         )
     }
 
     // MARK: - Accessibility
 
-    func checkAccessibility() -> Bool {
-        AXIsProcessTrusted()
+    func refreshAccessibility() {
+        isAccessibilityGranted = AXIsProcessTrusted()
     }
 
     deinit {
         stopIntercepting()
         if let ref = hotkeyRef {
             UnregisterEventHotKey(ref)
+        }
+        if let ref = eventHandlerRef {
+            RemoveEventHandler(ref)
         }
     }
 }

@@ -7,28 +7,26 @@ final class SystemManager {
 
     private var sleepAssertionID: IOPMAssertionID = 0
     private var isSleepPrevented = false
-    private var savedHotCorners: [String: Int]?
+
+    private static let hotCornerKeys = [
+        "wvous-tl-corner", "wvous-tr-corner",
+        "wvous-bl-corner", "wvous-br-corner"
+    ]
+
+    private let savedHotCornersKey = "GK.savedHotCorners"
 
     // MARK: - DND (Do Not Disturb)
 
-    func enableDND() {
-        // macOS Monterey+: Focus/DND via defaults
-        let center = DistributedNotificationCenter.default()
-        center.post(name: .init("com.apple.notificationcenterui.turnOnDoNotDisturb"), object: nil)
+    func enableDND() { setDND(true) }
+    func disableDND() { setDND(false) }
 
-        // 백업: defaults로 직접 설정
-        let defaults = UserDefaults(suiteName: "com.apple.notificationcenterui")
-        defaults?.set(true, forKey: "doNotDisturb")
-        defaults?.synchronize()
-    }
-
-    func disableDND() {
-        let center = DistributedNotificationCenter.default()
-        center.post(name: .init("com.apple.notificationcenterui.turnOffDoNotDisturb"), object: nil)
+    private func setDND(_ enabled: Bool) {
+        let suffix = enabled ? "turnOnDoNotDisturb" : "turnOffDoNotDisturb"
+        DistributedNotificationCenter.default()
+            .post(name: .init("com.apple.notificationcenterui.\(suffix)"), object: nil)
 
         let defaults = UserDefaults(suiteName: "com.apple.notificationcenterui")
-        defaults?.set(false, forKey: "doNotDisturb")
-        defaults?.synchronize()
+        defaults?.set(enabled, forKey: "doNotDisturb")
     }
 
     // MARK: - 화면 잠자기 방지
@@ -36,7 +34,7 @@ final class SystemManager {
     func preventSleep() {
         guard !isSleepPrevented else { return }
 
-        let reason = "GameKeys for Mac - 게임 모드 활성" as CFString
+        let reason = "GameKeys for Mac - Game Mode Active" as CFString
         let result = IOPMAssertionCreateWithName(
             kIOPMAssertionTypeNoDisplaySleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
@@ -60,31 +58,29 @@ final class SystemManager {
     func disableHotCorners() {
         let defaults = UserDefaults(suiteName: "com.apple.dock")
 
-        // 현재 설정 저장
-        savedHotCorners = [:]
-        for corner in ["wvous-tl-corner", "wvous-tr-corner", "wvous-bl-corner", "wvous-br-corner"] {
-            savedHotCorners?[corner] = defaults?.integer(forKey: corner) ?? 0
+        // 현재 설정 저장 (UserDefaults에 persist, 크래시 시에도 복원 가능)
+        var saved: [String: Int] = [:]
+        for corner in Self.hotCornerKeys {
+            saved[corner] = defaults?.integer(forKey: corner) ?? 0
         }
+        UserDefaults.standard.set(saved, forKey: savedHotCornersKey)
 
-        // 모든 코너를 비활성 (0 = no action)
-        for corner in ["wvous-tl-corner", "wvous-tr-corner", "wvous-bl-corner", "wvous-br-corner"] {
+        // 모든 코너 비활성
+        for corner in Self.hotCornerKeys {
             defaults?.set(0, forKey: corner)
         }
-        defaults?.synchronize()
 
-        // Dock 재시작하여 적용
         restartDock()
     }
 
     func restoreHotCorners() {
-        guard let saved = savedHotCorners else { return }
+        guard let saved = UserDefaults.standard.dictionary(forKey: savedHotCornersKey) as? [String: Int] else { return }
         let defaults = UserDefaults(suiteName: "com.apple.dock")
 
         for (corner, value) in saved {
             defaults?.set(value, forKey: corner)
         }
-        defaults?.synchronize()
-        savedHotCorners = nil
+        UserDefaults.standard.removeObject(forKey: savedHotCornersKey)
 
         restartDock()
     }
@@ -99,13 +95,11 @@ final class SystemManager {
     // MARK: - 커서 흔들어서 찾기
 
     func disableCursorShake() {
-        let defaults = UserDefaults.standard
-        defaults.set(true, forKey: "CGDisableCursorLocationMagnification")
+        UserDefaults.standard.set(true, forKey: "CGDisableCursorLocationMagnification")
     }
 
     func enableCursorShake() {
-        let defaults = UserDefaults.standard
-        defaults.removeObject(forKey: "CGDisableCursorLocationMagnification")
+        UserDefaults.standard.removeObject(forKey: "CGDisableCursorLocationMagnification")
     }
 
     // MARK: - 전체 적용/해제
