@@ -441,8 +441,8 @@ struct AddKeyModal: View {
     private func start() {
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
             code = Int64(e.keyCode)
-            mods = UInt64(e.modifierFlags.rawValue & 0x00FF0000)
-            capturedKey = KeyRecorderView.displayName(keyCode: code, modifiers: mods)
+            mods = UInt64(e.modifierFlags.rawValue) & BlockRule.modifierMask
+            capturedKey = BlockRule.formatKeyName(keyCode: code, modifiers: mods)
             if name.isEmpty { name = capturedKey + L.blockSuffix }
             return nil
         }

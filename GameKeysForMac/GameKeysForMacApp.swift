@@ -7,16 +7,15 @@ struct GameKeysForMacApp: App {
 
     init() {
         let state = AppState()
+        let manager = GameModeManager(appState: state)
+        manager.registerGlobalHotkey()
         _appState = StateObject(wrappedValue: state)
-        _gameMode = StateObject(wrappedValue: GameModeManager(appState: state))
+        _gameMode = StateObject(wrappedValue: manager)
     }
 
     var body: some Scene {
         MenuBarExtra {
             PopoverView(gameMode: gameMode, appState: appState)
-                .onAppear {
-                    gameMode.registerGlobalHotkey()
-                }
         } label: {
             Image(systemName: appState.isGameModeEnabled ? "shield.fill" : "shield")
         }
