@@ -1,0 +1,39 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserdata
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.xcarchive
+
+# macOS
+.DS_Store
+**/.DS_Store
+*.swp
+*~
+._*
+
+# Build output
+dist/
+build/
+
+# Design mockups
+design-mockups/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+
+# Claude Code
+.claude/
